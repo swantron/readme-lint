@@ -41,18 +41,28 @@ Download the latest release binary for your platform from the [Releases](https:/
 ```bash
 curl -L -o readme-lint https://github.com/swantron/readme-lint/releases/latest/download/readme-lint-linux-amd64
 chmod +x readme-lint
+# Optional: move to PATH for global access
+sudo mv readme-lint /usr/local/bin/
 ```
 
 **macOS (Intel):**
 ```bash
 curl -L -o readme-lint https://github.com/swantron/readme-lint/releases/latest/download/readme-lint-darwin-amd64
 chmod +x readme-lint
+# Remove macOS quarantine attribute
+xattr -c readme-lint
+# Optional: move to PATH for global access
+sudo mv readme-lint /usr/local/bin/
 ```
 
 **macOS (Apple Silicon):**
 ```bash
 curl -L -o readme-lint https://github.com/swantron/readme-lint/releases/latest/download/readme-lint-darwin-arm64
 chmod +x readme-lint
+# Remove macOS quarantine attribute
+xattr -c readme-lint
+# Optional: move to PATH for global access
+sudo mv readme-lint /usr/local/bin/
 ```
 
 **Windows:**
