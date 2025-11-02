@@ -9,9 +9,13 @@ jobs:
   build:
     name: Build binaries
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -35,7 +39,7 @@ jobs:
           GOOS=windows GOARCH=amd64 go build -o readme-lint-windows-amd64.exe .
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             readme-lint-linux-amd64
@@ -43,6 +47,5 @@ jobs:
             readme-lint-darwin-amd64
             readme-lint-darwin-arm64
             readme-lint-windows-amd64.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
 
