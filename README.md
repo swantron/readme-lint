@@ -18,7 +18,7 @@ When run, it will scan a README.md file, report any errors, and exit with a non-
   - `## Usage`
   - `## Installation`
   - `## License`
-- **Placeholder Check**: Scans for common placeholder text like `TODO` or `coming soon`.
+- **Placeholder Check**: Scans for incomplete placeholder text that should be finished before publication.
 - **License File Check**: If a `## License` section is found, it will also check that a LICENSE file exists in the repository's root.
 
 ## Command-Line Usage
