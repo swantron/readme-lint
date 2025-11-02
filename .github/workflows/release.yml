@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build Linux AMD64
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o readme-lint-linux-amd64 .
+      - name: Build Linux ARM64
+        run: |
+          GOOS=linux GOARCH=arm64 go build -o readme-lint-linux-arm64 .
+      - name: Build macOS AMD64
+        run: |
+          GOOS=darwin GOARCH=amd64 go build -o readme-lint-darwin-amd64 .
+      - name: Build macOS ARM64
+        run: |
+          GOOS=darwin GOARCH=arm64 go build -o readme-lint-darwin-arm64 .
+      - name: Build Windows AMD64
+        run: |
+          GOOS=windows GOARCH=amd64 go build -o readme-lint-windows-amd64.exe .
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            readme-lint-linux-amd64
+            readme-lint-linux-arm64
+            readme-lint-darwin-amd64
+            readme-lint-darwin-arm64
+            readme-lint-windows-amd64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
