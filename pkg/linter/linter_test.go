@@ -51,9 +51,9 @@ func TestCheckTitle(t *testing.T) {
 
 func TestCheckSections(t *testing.T) {
 	tests := []struct {
-		name          string
-		content       string
-		missingCount  int
+		name         string
+		content      string
+		missingCount int
 	}{
 		{
 			name: "All sections present",
@@ -135,39 +135,39 @@ func TestCheckLicenseFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalDir, _ := os.Getwd()
 	defer os.Chdir(originalDir)
-	
+
 	os.Chdir(tmpDir)
 
 	tests := []struct {
-		name         string
-		content      string
+		name          string
+		content       string
 		createLicense bool
-		hasError     bool
+		hasError      bool
 	}{
 		{
-			name:         "No license section",
-			content:      "# Project",
+			name:          "No license section",
+			content:       "# Project",
 			createLicense: false,
-			hasError:     false,
+			hasError:      false,
 		},
 		{
-			name:         "Has license section and file",
-			content:      "# Project\n\n## License\n\nMIT",
+			name:          "Has license section and file",
+			content:       "# Project\n\n## License\n\nMIT",
 			createLicense: true,
-			hasError:     false,
+			hasError:      false,
 		},
 		{
-			name:         "Has license section but no file",
-			content:      "# Project\n\n## License\n\nMIT",
+			name:          "Has license section but no file",
+			content:       "# Project\n\n## License\n\nMIT",
 			createLicense: false,
-			hasError:     true,
+			hasError:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			os.Remove("LICENSE")
-			
+
 			if tt.createLicense {
 				os.WriteFile("LICENSE", []byte("MIT License"), 0644)
 			}
@@ -176,7 +176,7 @@ func TestCheckLicenseFile(t *testing.T) {
 				lines: splitLines(tt.content),
 			}
 			result := l.checkLicenseFile()
-			
+
 			if tt.hasError && result.Message == "" {
 				t.Errorf("Expected error but got none")
 			}
