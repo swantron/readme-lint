@@ -1,0 +1,134 @@
+# Buildkite pipeline for readme-lint
+#
+# This pipeline runs on the self-hosted GCP agent provisioned by
+# github.com/swantron/buildkite-gcp-agent. All steps target the
+# "gcp" queue via agent tags.
+#
+# Pipeline structure:
+#   1. ci       — format check, vet, build, self-lint (always runs)
+#   2. release  — parallel cross-platform binary builds (tag pushes only)
+#   3. publish  — create GitHub release with artifacts (after release stage)
+#
+# Compared to the equivalent GitHub Actions workflows, this pipeline
+# demonstrates two Buildkite-specific capabilities:
+#
+#   Parallel steps: The cross-platform builds in the release stage run as
+#   true parallel steps dispatched to the agent simultaneously, rather than
+#   sequential run statements in a single job. At scale this pattern
+#   distributes compilation across a pool of agents.
+#
+#   Annotations: The CI stage uploads a structured annotation so build
+#   results are surfaced directly in the Buildkite UI — not just buried
+#   in raw log output. Teams with many pipelines find this invaluable
+#   for triage without opening every individual job log.
+
+agents:
+  queue: gcp
+
+steps:
+
+  # ============================================================
+  # Stage 1: CI — runs on every push and pull request
+  # ============================================================
+
+  - label: ":go: Format"
+    key: fmt
+    command: |
+      if [ "$$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+        echo "Code is not formatted. Run 'go fmt ./...'"
+        gofmt -s -d .
+        exit 1
+      fi
+      echo "--- Format check passed"
+
+  - label: ":go: Vet"
+    key: vet
+    command: |
+      go vet ./...
+      echo "--- Vet passed"
+
+  - label: ":go: Build & Self-lint"
+    key: build
+    depends_on:
+      - fmt
+      - vet
+    command: |
+      go build -o readme-lint .
+      ./readme-lint ./README.md
+      echo "--- Build and self-lint passed"
+    artifact_paths: "readme-lint"
+
+  # Buildkite annotation: surfaces pass/fail summary in the UI
+  # without having to open individual job logs. Especially useful
+  # when monitoring many pipelines in a team dashboard.
+  - label: ":buildkite: Annotate"
+    key: annotate
+    depends_on:
+      - build
+    command: |
+      buildkite-agent annotate \
+        "**readme-lint CI passed** — fmt, vet, build, and self-lint all green :white_check_mark:" \
+        --style "success" \
+        --context "ci-summary"
+
+  # ============================================================
+  # Stage 2: Release — parallel cross-platform builds
+  # Only runs on version tags (v*)
+  # ============================================================
+
+  - wait: ~
+    if: build.tag =~ /^v/
+
+  - label: ":linux: Build linux/amd64"
+    key: build-linux-amd64
+    if: build.tag =~ /^v/
+    command: GOOS=linux GOARCH=amd64 go build -o readme-lint-linux-amd64 .
+    artifact_paths: "readme-lint-linux-amd64"
+
+  - label: ":linux: Build linux/arm64"
+    key: build-linux-arm64
+    if: build.tag =~ /^v/
+    command: GOOS=linux GOARCH=arm64 go build -o readme-lint-linux-arm64 .
+    artifact_paths: "readme-lint-linux-arm64"
+
+  - label: ":darwin: Build darwin/amd64"
+    key: build-darwin-amd64
+    if: build.tag =~ /^v/
+    command: GOOS=darwin GOARCH=amd64 go build -o readme-lint-darwin-amd64 .
+    artifact_paths: "readme-lint-darwin-amd64"
+
+  - label: ":darwin: Build darwin/arm64"
+    key: build-darwin-arm64
+    if: build.tag =~ /^v/
+    command: GOOS=darwin GOARCH=arm64 go build -o readme-lint-darwin-arm64 .
+    artifact_paths: "readme-lint-darwin-arm64"
+
+  - label: ":windows: Build windows/amd64"
+    key: build-windows-amd64
+    if: build.tag =~ /^v/
+    command: GOOS=windows GOARCH=amd64 go build -o readme-lint-windows-amd64.exe .
+    artifact_paths: "readme-lint-windows-amd64.exe"
+
+  # ============================================================
+  # Stage 3: Publish — waits for all release builds to complete
+  # ============================================================
+
+  - wait: ~
+    if: build.tag =~ /^v/
+
+  - label: ":github: Publish Release"
+    key: publish
+    if: build.tag =~ /^v/
+    command: |
+      # Download all artifacts built in the release stage
+      buildkite-agent artifact download "readme-lint-*" .
+
+      # Create GitHub release via gh CLI
+      gh release create "$${BUILDKITE_TAG}" \
+        readme-lint-linux-amd64 \
+        readme-lint-linux-arm64 \
+        readme-lint-darwin-amd64 \
+        readme-lint-darwin-arm64 \
+        readme-lint-windows-amd64.exe \
+        --title "$${BUILDKITE_TAG}" \
+        --generate-notes

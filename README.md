@@ -205,6 +205,59 @@ jobs:
         run: /tmp/readme-lint/readme-lint ./README.md
 ```
 
+## Buildkite Pipeline
+
+This repository includes a Buildkite pipeline (`.buildkite/pipeline.yml`) that mirrors the GitHub Actions workflows while showcasing Buildkite-specific capabilities.
+
+### Architecture
+
+```
+Push / PR
+  └── Buildkite
+        └── Self-hosted agent (GCP e2-micro, us-west1)
+              ├── fmt check
+              ├── vet
+              ├── build + self-lint  (depends on fmt + vet)
+              └── annotate           (surfaces result in Buildkite UI)
+
+Tag push (v*)
+  └── Buildkite
+        ├── linux/amd64   ┐
+        ├── linux/arm64   │ parallel — all four dispatch simultaneously
+        ├── darwin/amd64  │ to the agent pool
+        ├── darwin/arm64  ┘
+        └── windows/amd64
+              └── publish (downloads artifacts, creates GitHub release)
+```
+
+### Why Buildkite instead of GitHub Actions for this
+
+**Parallel steps as first-class citizens.** The cross-platform release builds run as five independent steps dispatched in parallel. In GitHub Actions, these are sequential `run` statements in a single job (or require a separate matrix job with YAML overhead). Buildkite's step model maps more naturally to distributing work across an agent pool.
+
+**Annotations.** The CI stage writes a structured annotation directly into the Buildkite build UI — a pass/fail summary visible without opening individual job logs. At scale (many pipelines, many engineers), annotations are the difference between a usable build dashboard and one that requires drilling into every log.
+
+**Agent targeting.** All steps specify `queue: gcp`, routing jobs to the self-hosted agent on GCP. In a real platform engineering context this pattern extends naturally: GPU workloads route to `queue: gpu`, macOS builds to `queue: macos`, etc. — all managed via the same pipeline syntax.
+
+### Pipeline setup
+
+The pipeline connects to this repo via Buildkite → New Pipeline → point at `github.com/swantron/readme-lint`. Buildkite reads `.buildkite/pipeline.yml` automatically.
+
+The agent is provisioned separately via [buildkite-gcp-agent](https://github.com/swantron/buildkite-gcp-agent) — a Terraform config that provisions a free-tier GCP instance and registers it with Buildkite. Infrastructure changes are applied automatically via GitHub Actions on merge to main.
+
+### Using in Buildkite pipelines
+
+```yaml
+# .buildkite/pipeline.yml
+steps:
+  - label: "Lint README"
+    command: |
+      curl -fsSL -o readme-lint https://github.com/swantron/readme-lint/releases/latest/download/readme-lint-linux-amd64
+      chmod +x readme-lint
+      ./readme-lint ./README.md
+    agents:
+      queue: gcp
+```
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
