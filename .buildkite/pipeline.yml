@@ -34,6 +34,7 @@ steps:
   - label: ":go: Format"
     key: fmt
     command: |
+      which gofmt || { echo "gofmt not found — Go not in PATH"; exit 1; }
       if [ "$$(gofmt -s -l . | wc -l)" -gt 0 ]; then
         echo "Code is not formatted. Run 'go fmt ./...'"
         gofmt -s -d .
@@ -44,6 +45,7 @@ steps:
   - label: ":go: Vet"
     key: vet
     command: |
+      which go || { echo "go not found — Go not in PATH"; exit 1; }
       go vet ./...
       echo "--- Vet passed"
 
