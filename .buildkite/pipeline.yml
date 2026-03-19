@@ -56,8 +56,7 @@ steps:
   - label: ":go: Test"
     key: test
     command: |
-      which go || { echo "go not found — Go not in PATH"; exit 1; }
-      go install gotest.tools/gotestsum@latest
+      which gotestsum || { echo "gotestsum not found — pre-install it on the agent"; exit 1; }
       gotestsum --junitfile junit.xml --format testname -- ./...
     artifact_paths: "junit.xml"
 
