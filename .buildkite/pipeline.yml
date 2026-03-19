@@ -49,29 +49,59 @@ steps:
       go vet ./...
       echo "--- Vet passed"
 
+  # Tests run in parallel with vet — no dependency between them.
+  # gotestsum produces JUnit XML which Buildkite renders as a structured
+  # test report annotation, surfacing individual pass/fail/skip counts
+  # directly in the build UI without opening logs.
+  - label: ":go: Test"
+    key: test
+    command: |
+      which go || { echo "go not found — Go not in PATH"; exit 1; }
+      go install gotest.tools/gotestsum@latest
+      gotestsum --junitfile junit.xml --format testname -- ./...
+    artifact_paths: "junit.xml"
+
+  # Upload JUnit results as a Buildkite annotation.
+  # The annotation renders a test summary (passed/failed/skipped counts
+  # plus individual failure details) inline on the build page.
+  - label: ":junit: Annotate Tests"
+    key: annotate-tests
+    depends_on:
+      - test
+    allow_dependency_failure: true  # annotate even if tests failed
+    command: |
+      buildkite-agent artifact download junit.xml .
+      # Buildkite natively renders JUnit XML when uploaded via test-collector
+      # For self-hosted agents without the collector, we parse and annotate manually
+      TOTAL=$$(python3 -c "
+      import xml.etree.ElementTree as ET
+      tree = ET.parse('junit.xml')
+      root = tree.getroot()
+      suite = root if root.tag == 'testsuite' else root.find('testsuite')
+      tests = suite.get('tests', '0')
+      failures = suite.get('failures', '0')
+      errors = suite.get('errors', '0')
+      skipped = suite.get('skipped', '0')
+      passed = int(tests) - int(failures) - int(errors) - int(skipped)
+      print(f'tests={tests} passed={passed} failed={int(failures)+int(errors)} skipped={skipped}')
+      ")
+      FAILED=$$(echo $$TOTAL | grep -oP 'failed=\K[0-9]+')
+      if [ "$$FAILED" -gt 0 ]; then
+        buildkite-agent annotate "**Tests failed** — $$TOTAL :x:" --style "error" --context "test-summary"
+      else
+        buildkite-agent annotate "**All tests passed** — $$TOTAL :white_check_mark:" --style "success" --context "test-summary"
+      fi
+
   - label: ":go: Build & Self-lint"
     key: build
     depends_on:
-      - fmt
       - vet
+      - test
     command: |
       go build -o readme-lint .
       ./readme-lint ./README.md
       echo "--- Build and self-lint passed"
     artifact_paths: "readme-lint"
-
-  # Buildkite annotation: surfaces pass/fail summary in the UI
-  # without having to open individual job logs. Especially useful
-  # when monitoring many pipelines in a team dashboard.
-  - label: ":buildkite: Annotate"
-    key: annotate
-    depends_on:
-      - build
-    command: |
-      buildkite-agent annotate \
-        "**readme-lint CI passed** — fmt, vet, build, and self-lint all green :white_check_mark:" \
-        --style "success" \
-        --context "ci-summary"
 
   # ============================================================
   # Stage 2: Release — parallel cross-platform builds
