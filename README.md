@@ -207,7 +207,7 @@ jobs:
 
 ## Buildkite Pipeline
 
-This repository includes a Buildkite pipeline (`.buildkite/pipeline.yml`) that mirrors the GitHub Actions workflows while showcasing Buildkite-specific capabilities.
+This repo includes a Buildkite pipeline at `.buildkite/pipeline.yml` that runs on a self-hosted GCP agent provisioned by [buildkite-gcp-agent](https://github.com/swantron/buildkite-gcp-agent). It mirrors the GitHub Actions workflows while showcasing Buildkite-specific capabilities.
 
 ### Architecture
 
